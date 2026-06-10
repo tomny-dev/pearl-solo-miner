@@ -64,7 +64,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only export cache off pull_request: fork PRs have a read-only token
+          # and would otherwise emit noisy "failed to export cache" warnings.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
           # Pass the lpminer URL through only if provided via manual dispatch;
           # otherwise the Dockerfile default is used.
           build-args: |

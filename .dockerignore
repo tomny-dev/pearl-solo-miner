@@ -1,0 +1,12 @@
+# Keep the build context tiny - the image only needs the Dockerfile and start.sh.
+# Also prevents a real .env (wallet/worker) from ever being copied into an image.
+.git
+.gitignore
+.gitattributes
+.github/
+.env
+.env.*
+*.md
+LICENSE
+scripts/
+docker-compose.yml

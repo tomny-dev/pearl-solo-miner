@@ -9,7 +9,9 @@ services:
       dockerfile: Dockerfile
       args:
         # Override the lpminer version/source without editing the Dockerfile.
-        LPMINER_URL: ${LPMINER_URL:-https://pearl.luckypool.io/lpminer/lpminer-0.1.10.zip}
+        LPMINER_URL: ${LPMINER_URL:-https://pearl.luckypool.io/lpminer/lpminer-0.1.9.tar.gz}
+        # Try a newer CUDA runtime for sm_120 GPUs, e.g. 13.0.1-runtime-ubuntu24.04
+        CUDA_IMAGE_TAG: ${CUDA_IMAGE_TAG:-12.8.1-runtime-ubuntu24.04}
     image: pearl-solo-miner:latest
     container_name: pearl-solo-miner
 
