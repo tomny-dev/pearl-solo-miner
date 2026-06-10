@@ -183,14 +183,21 @@ Then `docker logs -f pearl-solo-miner` to watch, `docker stop pearl-solo-miner` 
 - Test the host: `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`.
 - Wrong/too few cards: check `GPU_COUNT` (or `device_ids`) against `nvidia-smi -L`.
 
-**RTX 50-series (Blackwell / `sm_120`): `illegal memory access` crash loop**
-lpminer enables the card then the GPU compute faults — usually an environment
-issue, not missing Blackwell support. Try, in order:
-1. Newer CUDA base: `docker compose build --build-arg CUDA_IMAGE_TAG=12.9.1-runtime-ubuntu24.04` (or `13.0.2-...`), then `up -d`.
-2. Add `CUDA_FORCE_PTX_JIT=1` to `.env` and restart.
-3. On Docker Desktop/WSL2, bleeding-edge `sm_120` kernels can fault even when fine on bare-metal Linux — not fixable from the container.
+**RTX 50-series (Blackwell / `sm_120` / `cc 12.0`): not supported by lpminer 0.1.9**
+The only Linux lpminer build (0.1.9) ships **no compute backend for `cc=12.0`**,
+so a 50-series card cannot mine with this image — on **any** OS (native Linux or
+WSL2). This is a missing kernel inside the binary, **not** an environment/CUDA
+issue, so a newer CUDA base image or PTX JIT will **not** help. Confirm with the
+GPU self-test:
 
-Isolate it (GPU self-test, no pool): `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench`
+```
+docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench
+```
+
+Tell-tale output: `no Pearl signal backend supports device=0 cc=12.0` (or an
+`illegal memory access` during mining). Options today:
+- Run LuckyPool's **Windows lpminer 0.1.10 natively** (the `.zip`, outside Docker) — the Windows build is newer and likely has the Blackwell backend.
+- Wait for a **Linux lpminer with a `cc=12.0` backend**; when it ships, point `LPMINER_URL` at it and rebuild — nothing else changes.
 
 **Container keeps restarting**
 - Logs end right at `commands  s (stats), q (quit)`: lpminer hit stdin EOF and quit. Compose sets `stdin_open: true`; with `docker run` use `-di`.
