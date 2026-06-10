@@ -283,6 +283,28 @@ page — pools occasionally change them.
 - The Compose `deploy.devices` block must keep `utility` in `capabilities` so
   `nvidia-smi` is injected.
 
+### RTX 50-series (Blackwell / `sm_120`): "illegal memory access" crash loop
+- Symptom: startup is clean (GPU detected, pool `authorize: ok`, a job arrives),
+  then immediately:
+  ```
+  pearl_harness: kernel launch: an illegal memory access was encountered
+  GPU #0 worker exited rc=1; disabling device for this session
+  all GPU workers exited; stopping session
+  ```
+  followed by a restart loop.
+- Cause: **lpminer 0.1.9 (currently the only build LuckyPool publishes) does not
+  ship working CUDA kernels for Blackwell `sm_120`** (RTX 5070/5080/5090). It
+  detects and "enables" the card, but the first GPU kernel faults. This is a
+  miner-internal limitation, not a problem with this Docker wrapper.
+- Fixes:
+  - **Stop the loop** for now: `docker compose down`.
+  - When LuckyPool releases a Blackwell-capable lpminer, point `LPMINER_URL` at
+    it and rebuild — no other changes needed:
+    `docker compose build --build-arg LPMINER_URL=<new-tarball-url> && docker compose up -d`.
+  - Or mine Pearl with a different miner/pool whose binary supports `sm_120`.
+- Verify the GPU itself is fine (this is a CUDA smoke test, no mining):
+  `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-verify`.
+
 ### Shares accepted but no payout yet
 - **This is expected for solo mining.** Accepted shares only prove your rig is
   working; payment comes **only when you find a block**, which is rare and random.
