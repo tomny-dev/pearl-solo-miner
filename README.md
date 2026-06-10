@@ -1,14 +1,15 @@
-# Pearl (PRL) Solo-Pool Miner — Dockerized, NVIDIA GPU
+# Pearl (PRL) Miner — Dockerized, NVIDIA GPU
 
-A small, hardened Docker wrapper for **solo mining Pearl (PRL)** on a single
-NVIDIA GPU using **LuckyPool's `lpminer`**.
+A small, hardened Docker wrapper for mining Pearl (PRL) on NVIDIA GPUs using
+**LuckyPool's `lpminer`**. Supports **solo or normal pool mining**, **one or
+many GPUs**, and runs on **Linux, Windows (Docker Desktop + WSL2) and macOS**.
 
 - `lpminer` is downloaded at build time from the official LuckyPool URL
   (configurable via `LPMINER_URL`).
-- All runtime settings — wallet, worker, pool, GPU, solo mode — come from
-  environment variables. Nothing sensitive is baked into the image.
+- All runtime settings — wallet, worker, pool, GPU count, mining mode — come
+  from environment variables. Nothing sensitive is baked into the image.
 - Defaults target a **LuckyPool North America** server on a **low-difficulty
-  port** suitable for rigs **under ~500 TH/s**.
+  port** suitable for rigs **under ~500 TH/s**, in **solo** mode.
 
 > ⚠️ **Solo mining is lottery-style.** You only get paid when *your* rig finds a
 > whole block. You may mine for **days or weeks and earn zero PRL**. If you want
@@ -22,7 +23,7 @@ NVIDIA GPU using **LuckyPool's `lpminer`**.
 ```
 .
 ├── Dockerfile             # CUDA base, downloads lpminer, non-root user
-├── docker-compose.yml     # single-GPU pinning + security hardening
+├── docker-compose.yml     # GPU selection + security hardening
 ├── .env.example           # all configuration (copy to .env)
 ├── .gitignore             # keeps your real .env out of git
 ├── start.sh               # validation, safe logging, exec lpminer
@@ -44,11 +45,12 @@ NVIDIA GPU using **LuckyPool's `lpminer`**.
 
 ## Prerequisites
 
-- A Linux host with an NVIDIA GPU and a recent NVIDIA driver.
-- Docker Engine + Docker Compose v2.
-- The **NVIDIA Container Toolkit** (so containers can see the GPU).
+All platforms need Docker + Docker Compose v2, an NVIDIA GPU, and a recent
+NVIDIA driver. The GPU-passthrough setup differs slightly per OS.
 
-### Install the NVIDIA Container Toolkit
+### Linux
+
+Install the **NVIDIA Container Toolkit** so containers can see the GPU:
 
 ```bash
 # Add the repository (Debian/Ubuntu)
@@ -69,7 +71,30 @@ sudo systemctl restart docker
 sudo docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi
 ```
 
-If that last command lists your GPU, you're ready.
+### Windows (Docker Desktop + WSL2)
+
+- **Windows 10/11 with WSL2** enabled.
+- The normal **NVIDIA Windows driver** (Game Ready / Studio) — recent versions
+  include CUDA-on-WSL support. ⚠️ Do **not** install a driver *inside* WSL; the
+  Windows driver is shared into WSL automatically.
+- **Docker Desktop** with the **WSL2 backend** (Settings → General → "Use the
+  WSL 2 based engine"). No `nvidia-ctk` step is needed — GPU support is built in.
+
+Verify the GPU reaches containers (PowerShell):
+
+```powershell
+docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi
+```
+
+### macOS
+
+NVIDIA GPU passthrough is **not available** on macOS (no supported NVIDIA driver
+path through Docker Desktop). You can build/inspect the image, but actual mining
+requires a Linux or Windows host with an NVIDIA GPU.
+
+If the verify command lists your GPU(s), you're ready. The Compose file uses the
+cross-platform device-reservation form, so the same `docker compose` commands
+work on Linux and Windows.
 
 ---
 
@@ -83,8 +108,9 @@ cp .env.example .env
 #    PRL_WALLET=prl1your_real_pearl_address
 #    WORKER_NAME=rig01
 
-# 3. Choose which physical GPU to use (0 = first card, 1 = second card)
-#    GPU_ID=0
+# 3. Choose how many GPUs to use (1, 2, ... or all) and the mining mode
+#    GPU_COUNT=1
+#    SOLO_MODE=true   # set to false for normal shared pool mining
 
 # 4. Build the image (downloads lpminer)
 ./scripts/build.sh
@@ -108,23 +134,39 @@ yourself — with `SOLO_MODE=true` (the default) the wrapper prefixes it for you
 PRL_WALLET=prl1qxyz...your_address...
 ```
 
-### Choosing GPU 0 or GPU 1
+### Solo vs. normal pool mining
 
-Set `GPU_ID` in `.env`. This pins the container to exactly **one** physical card
-via `NVIDIA_VISIBLE_DEVICES`:
+Set `SOLO_MODE` in `.env`:
 
 ```
-GPU_ID=0   # first GPU
-GPU_ID=1   # second GPU
+SOLO_MODE=true    # SOLO: wallet prefixed with solo:, you win whole blocks (lottery)
+SOLO_MODE=false   # normal shared pool: steady, proportional payouts
 ```
 
-Run `nvidia-smi -L` on the host to see how your cards are numbered. To run a
-second card at the same time, copy the project to another folder, set `GPU_ID=1`
-and a different `WORKER_NAME` and `container_name`, then start it separately.
+The wrapper adds the `solo:` prefix automatically when solo is on — never put it
+in `PRL_WALLET` yourself.
 
-> Alternative: the compose file includes a commented `deploy.devices` block that
-> pins the same single GPU using `device_ids` instead of the nvidia runtime —
-> use it if your Docker is set up for CDI rather than `runtime: nvidia`.
+### Choosing how many / which GPUs
+
+GPU selection uses Compose's cross-platform device reservation, so the same
+config works on Linux and Windows. Set `GPU_COUNT` in `.env`:
+
+```
+GPU_COUNT=1     # one GPU (default)
+GPU_COUNT=2     # two GPUs
+GPU_COUNT=all   # every GPU in the machine
+```
+
+Run `nvidia-smi -L` (Linux/PowerShell) to see how your cards are numbered.
+
+**Pinning specific cards** — `GPU_COUNT` takes the *first N* GPUs. To choose
+*which* physical cards (e.g. only GPU 1, or GPUs 0 and 2), edit
+`docker-compose.yml`: comment out the `count:` line and uncomment `device_ids:`,
+then list them — `device_ids: ["1"]` or `device_ids: ["0","2"]`.
+
+> **Multi-GPU note:** `lpminer` uses all GPUs the container can see. If you want
+> per-GPU tuning or to limit which exposed GPUs it mines on, pass miner flags via
+> `MINER_EXTRA_ARGS`.
 
 ### Checking logs
 
@@ -171,8 +213,8 @@ The wallet is **always redacted** in logs (first 6 / last 4 characters only).
 | `WORKER_NAME`     | yes      | `rig01`                          | Label for this rig on the dashboard. |
 | `POOL_HOST`       | yes      | `pearl-ca1.luckypool.io`         | Pool stratum host (North America). |
 | `POOL_PORT`       | yes      | `3360`                           | Difficulty port (3360 low / 3361 mid / 3362 high). |
-| `SOLO_MODE`       | no       | `true`                           | `true` prefixes wallet with `solo:`. |
-| `GPU_ID`          | no       | `0`                              | Physical GPU index (0 or 1). |
+| `SOLO_MODE`       | no       | `true`                           | `true` = solo (prefix `solo:`); `false` = normal pool. |
+| `GPU_COUNT`       | no       | `1`                              | Number of GPUs to use (`1`, `2`, … or `all`). |
 | `MINER_PASSWORD`  | no       | `x`                              | Stratum password field. |
 | `MINER_EXTRA_ARGS`| no       | —                                | Extra raw args for `lpminer`. |
 | `LPMINER_URL`     | no       | official `lpminer-0.1.9.tar.gz`  | Build-time download URL/version. |
@@ -228,14 +270,17 @@ page — pools occasionally change them.
 ## Troubleshooting
 
 ### No GPU detected
-- `nvidia-smi not found` or `No NVIDIA GPU visible`: the NVIDIA Container Toolkit
-  isn't active. Re-run the install steps, then
-  `sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker`.
+- `nvidia-smi not found` or `No NVIDIA GPU visible`:
+  - **Linux:** the NVIDIA Container Toolkit isn't active. Re-run the install
+    steps, then `sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker`.
+  - **Windows:** ensure Docker Desktop uses the WSL2 backend and the NVIDIA
+    Windows driver is installed (not a driver inside WSL).
 - Test the host directly:
   `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`.
-- Wrong card: check `GPU_ID` against `nvidia-smi -L`.
-- Using the `deploy.devices` block? Make sure `capabilities` includes `utility`
-  so `nvidia-smi` is injected.
+- Wrong / too few cards: check `GPU_COUNT` (or the `device_ids` block) against
+  `nvidia-smi -L`.
+- The Compose `deploy.devices` block must keep `utility` in `capabilities` so
+  `nvidia-smi` is injected.
 
 ### Shares accepted but no payout yet
 - **This is expected for solo mining.** Accepted shares only prove your rig is
@@ -296,16 +341,16 @@ visibility → Public.**
 
 ### Run from the prebuilt image instead of building locally
 
-Replace `<owner>/<repo>` with your GitHub path (lowercase). Pull, then run with
-your `.env`:
+Replace `<owner>/<repo>` with your GitHub path (lowercase). The `--gpus` flag
+works the same on Linux and Windows (Docker Desktop).
+
+**Linux / macOS shells:**
 
 ```bash
 docker pull ghcr.io/<owner>/<repo>:latest
 
 docker run -d --name pearl-solo-miner \
-  --runtime=nvidia \
-  -e NVIDIA_VISIBLE_DEVICES=0 \
-  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+  --gpus all \
   --env-file .env \
   --read-only --tmpfs /tmp -v miner_data:/data \
   --security-opt no-new-privileges:true --cap-drop ALL \
@@ -313,17 +358,36 @@ docker run -d --name pearl-solo-miner \
   ghcr.io/<owner>/<repo>:latest
 ```
 
-Or point Compose at the published image by adding `image:` to the service and
-skipping the local build:
+**Windows (PowerShell):**
+
+```powershell
+docker pull ghcr.io/<owner>/<repo>:latest
+
+docker run -d --name pearl-solo-miner `
+  --gpus all `
+  --env-file .env `
+  --read-only --tmpfs /tmp -v miner_data:/data `
+  --security-opt no-new-privileges:true --cap-drop ALL `
+  --restart unless-stopped `
+  ghcr.io/<owner>/<repo>:latest
+```
+
+**Choosing GPUs with `docker run`:**
+
+```
+--gpus all                 # every GPU
+--gpus 2                   # the first two GPUs
+--gpus '"device=0"'        # only GPU 0   (quote exactly like this)
+--gpus '"device=0,2"'      # GPUs 0 and 2
+```
+
+Or point Compose at the published image (works on every OS). Set the service
+`image:` to `ghcr.io/<owner>/<repo>:latest` in `docker-compose.yml`, then:
 
 ```bash
-# Use the registry image without rebuilding
 docker compose pull
 docker compose up -d
 ```
-
-(For `docker compose pull` to fetch GHCR rather than build, set the service
-`image:` to `ghcr.io/<owner>/<repo>:latest` in `docker-compose.yml`.)
 
 ---
 

@@ -1,4 +1,5 @@
-# Pearl (PRL) solo-pool miner - one container pinned to exactly one NVIDIA GPU.
+# Pearl (PRL) pool / solo miner for NVIDIA GPUs.
+# Portable across Linux, Windows (Docker Desktop + WSL2) and macOS hosts.
 # All runtime values come from the .env file (copy .env.example to .env first).
 
 services:
@@ -16,12 +17,22 @@ services:
     env_file:
       - .env
 
-    # GPU selection: pin to exactly ONE physical card via NVIDIA_VISIBLE_DEVICES.
-    # GPU_ID=0 -> first card, GPU_ID=1 -> second card (set it in .env).
-    runtime: nvidia
-    environment:
-      NVIDIA_VISIBLE_DEVICES: ${GPU_ID:-0}
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    # ---- GPU selection (cross-platform) ----
+    # This device-reservation form works on Linux AND Docker Desktop (WSL2),
+    # unlike "runtime: nvidia" which is Linux-only.
+    #   GPU_COUNT=1    -> use one GPU   (default)
+    #   GPU_COUNT=2    -> use two GPUs
+    #   GPU_COUNT=all  -> use every GPU
+    # To pick SPECIFIC physical cards instead of "the first N", comment out the
+    # "count:" line and uncomment "device_ids:" below (e.g. ["1"] or ["0","2"]).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${GPU_COUNT:-1}
+              # device_ids: ["0"]        # pin specific card(s); replaces count
+              capabilities: [gpu, compute, utility]
 
     # Restart on crash, but stay down when you stop it on purpose.
     restart: unless-stopped
@@ -39,18 +50,6 @@ services:
       - /tmp
     volumes:
       - miner_data:/data
-
-    # ---- Alternative GPU selection (Compose device reservation) ----
-    # Use this block INSTEAD OF "runtime: nvidia" + NVIDIA_VISIBLE_DEVICES above
-    # if your Docker is configured for CDI / device_ids rather than the nvidia
-    # runtime. It pins the same single physical GPU by index.
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           device_ids: ["${GPU_ID:-0}"]
-    #           capabilities: [gpu, utility]
 
 volumes:
   miner_data:
