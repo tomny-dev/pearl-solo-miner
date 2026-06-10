@@ -302,6 +302,10 @@ page — pools occasionally change them.
 - Unstable overclocks also cause rejects — back off OC/undervolt settings.
 
 ### Container keeps restarting
+- **Logs end right after `commands  s (stats), q (quit)`** with no error: lpminer
+  read EOF on a closed stdin and quit cleanly, and the restart policy relaunched
+  it. Keep stdin open — Compose already sets `stdin_open: true`; with `docker run`
+  use `-di` instead of `-d`.
 - `./scripts/logs.sh` and read the first error line. The entrypoint validates
   config and prints a clear `ERROR:` for missing `PRL_WALLET`, `WORKER_NAME`,
   pool endpoint, GPU, or miner binary.
@@ -351,7 +355,7 @@ on Linux and Windows (Docker Desktop).
 ```bash
 docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
 
-docker run -d --name pearl-solo-miner \
+docker run -di --name pearl-solo-miner \
   --gpus all \
   --env-file .env \
   --read-only --tmpfs /tmp -v miner_data:/data \
@@ -365,7 +369,7 @@ docker run -d --name pearl-solo-miner \
 ```powershell
 docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
 
-docker run -d --name pearl-solo-miner `
+docker run -di --name pearl-solo-miner `
   --gpus all `
   --env-file .env `
   --read-only --tmpfs /tmp -v miner_data:/data `
@@ -373,6 +377,10 @@ docker run -d --name pearl-solo-miner `
   --restart unless-stopped `
   ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
+
+> Note the **`-di`** (not `-d`): lpminer reads stdin for its `s`/`q` commands and
+> quits on EOF, so it needs stdin held open (`-i`) to run detached. Compose does
+> this via `stdin_open: true`.
 
 **Choosing GPUs with `docker run`:**
 

@@ -13,6 +13,12 @@ services:
     image: pearl-solo-miner:latest
     container_name: pearl-solo-miner
 
+    # lpminer reads stdin for its interactive commands (s = stats, q = quit).
+    # When detached, a closed stdin reads EOF immediately and lpminer quits,
+    # which the restart policy then loops forever. Keep stdin open so it runs
+    # continuously in the background.
+    stdin_open: true
+
     # Runtime configuration is provided entirely by the .env file.
     env_file:
       - .env
