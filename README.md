@@ -218,7 +218,7 @@ The wallet is **always redacted** in logs (first 6 / last 4 characters only).
 | `MINER_PASSWORD`  | no       | `x`                              | Stratum password field (accepted but ignored by lpminer). |
 | `MINER_DEVICES`   | no       | all exposed                      | GPUs lpminer mines on, e.g. `0` or `0,1`. Empty = all. |
 | `MINER_EXTRA_ARGS`| no       | —                                | Extra raw args for `lpminer`. |
-| `LPMINER_URL`     | no       | official `lpminer-0.1.9.tar.gz`  | Build-time download URL/version. |
+| `LPMINER_URL`     | no       | official `lpminer-0.1.10.zip`    | Build-time download URL (`.zip` or `.tar.gz`). |
 
 Resulting miner command (wallet redacted in logs):
 
@@ -292,15 +292,16 @@ page — pools occasionally change them.
   all GPU workers exited; stopping session
   ```
   followed by a restart loop.
-- Cause: **lpminer 0.1.9 (currently the only build LuckyPool publishes) does not
-  ship working CUDA kernels for Blackwell `sm_120`** (RTX 5070/5080/5090). It
-  detects and "enables" the card, but the first GPU kernel faults. This is a
-  miner-internal limitation, not a problem with this Docker wrapper.
+- Cause: an lpminer build without working CUDA kernels for Blackwell `sm_120`
+  (RTX 5070/5080/5090). It detects and "enables" the card, but the first GPU
+  kernel faults. This is a miner-internal limitation, not a problem with this
+  Docker wrapper. lpminer **0.1.9** crashes this way on the 5090; **0.1.10**
+  (this image's default) is newer and may resolve it — test on your card.
 - Fixes:
-  - **Stop the loop** for now: `docker compose down`.
-  - When LuckyPool releases a Blackwell-capable lpminer, point `LPMINER_URL` at
-    it and rebuild — no other changes needed:
-    `docker compose build --build-arg LPMINER_URL=<new-tarball-url> && docker compose up -d`.
+  - **Stop the loop** if it persists: `docker compose down`.
+  - Try a newer lpminer by pointing `LPMINER_URL` at it and rebuilding — no other
+    changes needed (`.zip` and `.tar.gz` are both supported):
+    `docker compose build --build-arg LPMINER_URL=<new-url> && docker compose up -d`.
   - Or mine Pearl with a different miner/pool whose binary supports `sm_120`.
 - Verify the GPU itself is fine (this is a CUDA smoke test, no mining):
   `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-verify`.

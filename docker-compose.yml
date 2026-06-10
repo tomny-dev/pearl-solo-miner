@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Override the lpminer version/source without editing the Dockerfile.
-        LPMINER_URL: ${LPMINER_URL:-https://pearl.luckypool.io/lpminer/lpminer-0.1.9.tar.gz}
+        LPMINER_URL: ${LPMINER_URL:-https://pearl.luckypool.io/lpminer/lpminer-0.1.10.zip}
     image: pearl-solo-miner:latest
     container_name: pearl-solo-miner
 

@@ -55,7 +55,7 @@ fi
 # Locate the miner binary (tarball may unpack into a versioned subdirectory).
 MINER_BIN="${MINER_BIN:-}"
 [ -n "$MINER_BIN" ] || MINER_BIN="$(command -v lpminer || true)"
-[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 2 -type f -name 'lpminer*' -perm -u+x 2>/dev/null | head -n1 || true)"
+[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name 'lpminer*' -perm -u+x 2>/dev/null | head -n1 || true)"
 [ -n "$MINER_BIN" ] || die "lpminer binary not found under /opt/lpminer."
 [ -x "$MINER_BIN" ] || die "lpminer binary at $MINER_BIN is not executable."
 
