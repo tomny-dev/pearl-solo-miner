@@ -71,8 +71,8 @@ Edit `.env` (copied from `.env.example`):
 | `WORKER_NAME`      | no       | `rig01`                      | Label for this rig on the dashboard. |
 | `SOLO_MODE`        | no       | `true`                       | `true` = solo (adds `solo:`); `false` = shared pool. |
 | `GPU_COUNT`        | no       | `1`                          | GPUs to use: `1`, `2`, … or `all`. |
-| `POOL_HOST`        | yes      | `pearl-ca1.luckypool.io`     | Pool stratum host (North America). |
-| `POOL_PORT`        | yes      | `3360`                       | Difficulty port: `3360` low / `3361` mid / `3362` high. |
+| `POOL_HOST`        | no       | `pearl-ca1.luckypool.io`     | Pool stratum host (North America). |
+| `POOL_PORT`        | no       | `3360`                       | Difficulty port: `3360` low / `3361` mid / `3362` high. |
 | `MINER_DEVICES`    | no       | all exposed                  | Restrict to specific GPUs, e.g. `0` or `0,1`. |
 | `MINER_EXTRA_ARGS` | no       | —                            | Extra raw flags for `lpminer`. |
 | `LPMINER_URL`      | no       | Linux `lpminer-0.1.9.tar.gz` | Build-time download URL (must be the Linux `.tar.gz`). |
@@ -150,20 +150,22 @@ non-root); use Compose when you want the full set.
 
 ## Prebuilt image (GHCR)
 
-Prefer not to build? Pull the published image and run it (swap in your
-`owner/repo` if you forked). You still need a `.env` next to where you run this —
-`cp .env.example .env` and set `PRL_WALLET` first.
+Prefer not to build or clone? Pull the published image and run it (swap in your
+`owner/repo` if you forked). Only `PRL_WALLET` is required — pass it with `-e`,
+no `.env` file needed.
 
 This **one command is identical in PowerShell, CMD, and Git Bash** — it has no
 mount paths, so there's nothing for any shell to rewrite (no per-shell variants):
 
 ```bash
-docker run -di --name pearl-solo-miner --gpus all --env-file .env --restart unless-stopped ghcr.io/tomny-dev/pearl-solo-miner:latest
+docker run -di --name pearl-solo-miner --gpus all -e PRL_WALLET=prl1YOUR_ADDRESS --restart unless-stopped ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
 Then `docker logs -f pearl-solo-miner` to watch, `docker stop pearl-solo-miner` to stop.
 
 - **`-di` is required:** `lpminer` reads stdin and exits on EOF when detached.
+- Defaults to a North-America **solo** endpoint; override with more `-e` flags
+  (`-e SOLO_MODE=false`, `-e POOL_HOST=…`) or `--env-file .env`.
 - Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
 
 > This minimal command trades away the runtime hardening for cross-shell
