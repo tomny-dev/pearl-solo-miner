@@ -118,8 +118,10 @@ is redacted to first-6/last-4, and the password/extra args are masked):
 [pearl-solo-miner] Command       : .../lpminer --pearl-mine --pool pearl-ca1.luckypool.io:3360 --wallet solo:p…wxyz --worker rig01 --password ***
 ```
 
-**Worker stats:** open <https://pearl.luckypool.io/>, look up your full PRL
-address, and find your worker by `WORKER_NAME`.
+**Worker stats:** open <https://pearl.luckypool.io/> and look up your PRL
+address, then find your worker by `WORKER_NAME`. In solo mode the wrapper logs
+in as `solo:<address>`, so use the pool's solo view (or search the `solo:`-prefixed
+address) — searching the bare address may show only shared-pool stats.
 
 ---
 
