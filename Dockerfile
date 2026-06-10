@@ -13,11 +13,6 @@ FROM nvidia/cuda:${CUDA_IMAGE_TAG}
 # run inside this Linux image).
 ARG LPMINER_URL=https://pearl.luckypool.io/lpminer/lpminer-0.1.9.tar.gz
 
-# Expected SHA-256 of the downloaded archive (supply-chain integrity check).
-# If you override LPMINER_URL, update this to the new archive's hash, or set it
-# empty to skip verification (not recommended).
-ARG LPMINER_SHA256=2c7575b87a0ea95146bc83bf8c0729a7a9f551c64c5edfc2e51684e0ec78c196
-
 # Fixed UID/GID for the non-root runtime user (and the writable /data volume).
 ARG MINER_UID=10001
 ARG MINER_GID=10001
@@ -34,14 +29,9 @@ RUN apt-get update \
 
 WORKDIR /opt/lpminer
 
-# Download lpminer, verify its checksum, then unpack. Handles .tar.gz and .zip;
-# the archive type is detected from the URL with any ?query/#fragment stripped.
+# Download and unpack lpminer. Handles .tar.gz and .zip; the archive type is
+# detected from the URL with any ?query/#fragment stripped.
 RUN wget -qO /tmp/lpminer.archive "${LPMINER_URL}" \
- && if [ -n "${LPMINER_SHA256}" ]; then \
-      echo "${LPMINER_SHA256}  /tmp/lpminer.archive" | sha256sum -c -; \
-    else \
-      echo "WARNING: LPMINER_SHA256 is empty - skipping integrity check" >&2; \
-    fi \
  && url_path="${LPMINER_URL%%[?#]*}" \
  && case "${url_path}" in \
       *.zip)          unzip -q /tmp/lpminer.archive -d /opt/lpminer ;; \

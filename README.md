@@ -70,7 +70,6 @@ Edit `.env` (copied from `.env.example`):
 | `MINER_DEVICES`    | no       | all exposed                  | Restrict to specific GPUs, e.g. `0` or `0,1`. |
 | `MINER_EXTRA_ARGS` | no       | —                            | Extra raw flags for `lpminer`. |
 | `LPMINER_URL`      | no       | Linux `lpminer-0.1.9.tar.gz` | Build-time download URL (must be the Linux `.tar.gz`). |
-| `LPMINER_SHA256`   | no       | (0.1.9 hash)                 | Build arg: expected archive checksum; update if you change the URL. |
 | `CUDA_IMAGE_TAG`   | no       | `12.8.1-runtime-ubuntu24.04` | Build arg (set in `.env` or `--build-arg`): CUDA base image. |
 
 > Rarely-needed knobs (`MINER_PASSWORD`, `CUDA_FORCE_PTX_JIT`) have safe defaults
@@ -133,8 +132,6 @@ The image and Compose file are hardened (all compatible with the NVIDIA runtime)
 - **Read-only root filesystem**, with writable scratch via `tmpfs /tmp` and a
   named volume at `/data` (also `HOME` and the CUDA JIT cache). If a future
   `lpminer` needs to write elsewhere, add a mount or set `read_only: false`.
-- **Download integrity** — the lpminer archive is verified against
-  `LPMINER_SHA256` at build time before it's unpacked or executed.
 
 ---
 
