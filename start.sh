@@ -22,13 +22,14 @@ redact() {
 
 # ---- Startup validation -----------------------------------------------------
 
-[ -n "${PRL_WALLET:-}" ]  || die "PRL_WALLET is not set. Put it in your .env file."
-[ -n "${WORKER_NAME:-}" ] || die "WORKER_NAME is not set. Put it in your .env file."
+[ -n "${PRL_WALLET:-}" ] || die "PRL_WALLET is not set. Pass -e PRL_WALLET=prl1... or set it in .env."
 
-POOL_HOST="${POOL_HOST:-}"
-POOL_PORT="${POOL_PORT:-}"
-[ -n "$POOL_HOST" ] || die "POOL_HOST is not set (pool endpoint missing)."
-[ -n "$POOL_PORT" ] || die "POOL_PORT is not set (pool endpoint missing)."
+# Sensible LuckyPool defaults so PRL_WALLET is the only strictly-required value
+# (these mirror .env.example, so running the prebuilt image with just
+# -e PRL_WALLET=... works without a .env file).
+WORKER_NAME="${WORKER_NAME:-rig01}"
+POOL_HOST="${POOL_HOST:-pearl-ca1.luckypool.io}"
+POOL_PORT="${POOL_PORT:-3360}"
 POOL="${POOL_HOST}:${POOL_PORT}"
 
 # Solo mode: default ON. Prefixes the wallet with solo: for LuckyPool.

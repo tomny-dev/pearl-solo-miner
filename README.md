@@ -18,15 +18,21 @@ variables — nothing sensitive is baked into the image.
 
 ```bash
 cp .env.example .env        # 1. create your config
-# 2. edit .env: set PRL_WALLET (and WORKER_NAME / GPU_COUNT / SOLO_MODE)
-./scripts/build.sh          # 3. build (downloads + checksums lpminer)
-./scripts/run.sh            # 4. start mining (detached)
-./scripts/logs.sh           # 5. watch logs
-./scripts/stop.sh           # 6. stop
+# 2. edit .env: set PRL_WALLET to your Pearl address (prl1…)
+docker compose up -d        # 3. build + start, detached   (or: ./scripts/run.sh)
+docker compose logs -f      # 4. watch it mine             (or: ./scripts/logs.sh)
+docker compose down         # 5. stop                      (or: ./scripts/stop.sh)
 ```
 
-Only **`PRL_WALLET`** is mandatory. Set it to your Pearl payout address
-(`prl1…`) — **without** a `solo:` prefix; `SOLO_MODE` adds it automatically.
+Only **`PRL_WALLET`** is required — your Pearl payout address (`prl1…`),
+**without** a `solo:` prefix (`SOLO_MODE` adds it for you). Everything else in
+`.env` has a working default.
+
+> Compose is the recommended path: `docker compose up -d` builds the image the
+> first time, then runs the miner with **all security hardening applied for you**
+> (read-only root filesystem, dropped capabilities, `no-new-privileges`, GPU
+> reservation, and an always-open stdin). You never type a volume, tmpfs, or
+> security flag.
 
 > 🔒 Your real values live in `.env`, which is git-ignored. **Never commit
 > `.env`** — only `.env.example` belongs in git.
@@ -65,8 +71,8 @@ Edit `.env` (copied from `.env.example`):
 | `WORKER_NAME`      | no       | `rig01`                      | Label for this rig on the dashboard. |
 | `SOLO_MODE`        | no       | `true`                       | `true` = solo (adds `solo:`); `false` = shared pool. |
 | `GPU_COUNT`        | no       | `1`                          | GPUs to use: `1`, `2`, … or `all`. |
-| `POOL_HOST`        | yes      | `pearl-ca1.luckypool.io`     | Pool stratum host (North America). |
-| `POOL_PORT`        | yes      | `3360`                       | Difficulty port: `3360` low / `3361` mid / `3362` high. |
+| `POOL_HOST`        | no       | `pearl-ca1.luckypool.io`     | Pool stratum host (North America). |
+| `POOL_PORT`        | no       | `3360`                       | Difficulty port: `3360` low / `3361` mid / `3362` high. |
 | `MINER_DEVICES`    | no       | all exposed                  | Restrict to specific GPUs, e.g. `0` or `0,1`. |
 | `MINER_EXTRA_ARGS` | no       | —                            | Extra raw flags for `lpminer`. |
 | `LPMINER_URL`      | no       | Linux `lpminer-0.1.9.tar.gz` | Build-time download URL (must be the Linux `.tar.gz`). |
@@ -127,46 +133,47 @@ address) — searching the bare address may show only shared-pool stats.
 
 ## Security hardening
 
-The image and Compose file are hardened (all compatible with the NVIDIA runtime):
+The **Compose path** (`docker compose up -d`) applies full runtime hardening —
+none of which you type yourself:
 
-- **Non-root** runtime user (`miner`, UID 10001).
-- **`no-new-privileges`**, **`cap_drop: ALL`**.
-- **Read-only root filesystem**, with writable scratch via `tmpfs /tmp` and a
-  named volume at `/data` (also `HOME` and the CUDA JIT cache). If a future
-  `lpminer` needs to write elsewhere, add a mount or set `read_only: false`.
+- **Non-root** runtime user (`miner`, UID 10001) — baked into the image, so it
+  applies however you run it.
+- **Read-only root filesystem**, **`cap_drop: ALL`**, **`no-new-privileges`**.
+- Writable scratch via `tmpfs /tmp` and a named `miner_data` volume at `/data`
+  (also `HOME` and the CUDA JIT cache).
+
+The minimal `docker run` in [Prebuilt image](#prebuilt-image-ghcr) skips the
+read-only/capability hardening for cross-shell simplicity (the image is still
+non-root); use Compose when you want the full set.
 
 ---
 
 ## Prebuilt image (GHCR)
 
-Run from the published image instead of building (swap in your `owner/repo` if
-you forked). Use **`-di`** — `lpminer` reads stdin and quits on EOF when detached.
+Prefer not to build or clone? Pull the published image and run it (swap in your
+`owner/repo` if you forked). Only `PRL_WALLET` is required — pass it with `-e`,
+no `.env` file needed.
 
-**Linux / macOS:**
+This **one command is identical in PowerShell, CMD, and Git Bash** — it has no
+mount paths, so there's nothing for any shell to rewrite (no per-shell variants):
 
 ```bash
-docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
-docker run -di --name pearl-solo-miner \
-  --gpus all --env-file .env \
-  --read-only --tmpfs /tmp -v miner_data:/data \
-  --security-opt no-new-privileges:true --cap-drop ALL \
-  --restart unless-stopped \
-  ghcr.io/tomny-dev/pearl-solo-miner:latest
+docker run -di --name pearl-solo-miner --gpus all -e PRL_WALLET=prl1YOUR_ADDRESS --restart unless-stopped ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
-**Windows (PowerShell):**
+Then `docker logs -f pearl-solo-miner` to watch, `docker stop pearl-solo-miner` to stop.
 
-```powershell
-docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
-docker run -di --name pearl-solo-miner `
-  --gpus all --env-file .env `
-  --read-only --tmpfs /tmp -v miner_data:/data `
-  --security-opt no-new-privileges:true --cap-drop ALL `
-  --restart unless-stopped `
-  ghcr.io/tomny-dev/pearl-solo-miner:latest
-```
+- **`-di` is required:** `lpminer` reads stdin and exits on EOF when detached.
+- Defaults to a North-America **solo** endpoint; override with more `-e` flags
+  (`-e SOLO_MODE=false`, `-e POOL_HOST=…`) or `--env-file .env`.
+- Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
 
-Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
+> This minimal command trades away the runtime hardening for cross-shell
+> simplicity: the root filesystem is writable (not read-only) and capabilities
+> aren't dropped — though the image still runs as the non-root `miner` user.
+> **For the fully hardened setup, use Compose** (`docker compose up -d`), which
+> keeps the read-only root fs, `cap_drop: ALL`, `no-new-privileges`, and a named
+> `miner_data` volume — and never asks you to type a mount path either.
 
 ---
 
@@ -178,14 +185,21 @@ Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
 - Test the host: `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`.
 - Wrong/too few cards: check `GPU_COUNT` (or `device_ids`) against `nvidia-smi -L`.
 
-**RTX 50-series (Blackwell / `sm_120`): `illegal memory access` crash loop**
-lpminer enables the card then the GPU compute faults — usually an environment
-issue, not missing Blackwell support. Try, in order:
-1. Newer CUDA base: `docker compose build --build-arg CUDA_IMAGE_TAG=12.9.1-runtime-ubuntu24.04` (or `13.0.2-...`), then `up -d`.
-2. Add `CUDA_FORCE_PTX_JIT=1` to `.env` and restart.
-3. On Docker Desktop/WSL2, bleeding-edge `sm_120` kernels can fault even when fine on bare-metal Linux — not fixable from the container.
+**RTX 50-series (Blackwell / `sm_120` / `cc 12.0`): not supported by lpminer 0.1.9**
+The only Linux lpminer build (0.1.9) ships **no compute backend for `cc=12.0`**,
+so a 50-series card cannot mine with this image — on **any** OS (native Linux or
+WSL2). This is a missing kernel inside the binary, **not** an environment/CUDA
+issue, so a newer CUDA base image or PTX JIT will **not** help. Confirm with the
+GPU self-test:
 
-Isolate it (GPU self-test, no pool): `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench`
+```
+docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench
+```
+
+Tell-tale output: `no Pearl signal backend supports device=0 cc=12.0` (or an
+`illegal memory access` during mining). Options today:
+- Run LuckyPool's **Windows lpminer 0.1.10 natively** (the `.zip`, outside Docker) — the Windows build is newer and likely has the Blackwell backend.
+- Wait for a **Linux lpminer with a `cc=12.0` backend**; when it ships, point `LPMINER_URL` at it and rebuild — nothing else changes.
 
 **Container keeps restarting**
 - Logs end right at `commands  s (stats), q (quit)`: lpminer hit stdin EOF and quit. Compose sets `stdin_open: true`; with `docker run` use `-di`.
