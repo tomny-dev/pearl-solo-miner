@@ -166,6 +166,19 @@ docker run -di --name pearl-solo-miner `
   ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
+**Windows (Git Bash):** prefix with `MSYS_NO_PATHCONV=1` so Git Bash doesn't
+rewrite `/tmp` and `/data` into Windows paths (which causes
+`docker: ... invalid mount path: 'C'`):
+
+```bash
+MSYS_NO_PATHCONV=1 docker run -di --name pearl-solo-miner \
+  --gpus all --env-file .env \
+  --read-only --tmpfs /tmp -v miner_data:/data \
+  --security-opt no-new-privileges:true --cap-drop ALL \
+  --restart unless-stopped \
+  ghcr.io/tomny-dev/pearl-solo-miner:latest
+```
+
 Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
 
 ---
