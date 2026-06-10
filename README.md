@@ -215,14 +215,15 @@ The wallet is **always redacted** in logs (first 6 / last 4 characters only).
 | `POOL_PORT`       | yes      | `3360`                           | Difficulty port (3360 low / 3361 mid / 3362 high). |
 | `SOLO_MODE`       | no       | `true`                           | `true` = solo (prefix `solo:`); `false` = normal pool. |
 | `GPU_COUNT`       | no       | `1`                              | Number of GPUs to use (`1`, `2`, … or `all`). |
-| `MINER_PASSWORD`  | no       | `x`                              | Stratum password field. |
+| `MINER_PASSWORD`  | no       | `x`                              | Stratum password field (accepted but ignored by lpminer). |
+| `MINER_DEVICES`   | no       | all exposed                      | GPUs lpminer mines on, e.g. `0` or `0,1`. Empty = all. |
 | `MINER_EXTRA_ARGS`| no       | —                                | Extra raw args for `lpminer`. |
 | `LPMINER_URL`     | no       | official `lpminer-0.1.9.tar.gz`  | Build-time download URL/version. |
 
 Resulting miner command (wallet redacted in logs):
 
 ```
-lpminer pearl <solo:WALLET>.<WORKER> <POOL_HOST>:<POOL_PORT> <MINER_PASSWORD> [MINER_EXTRA_ARGS]
+lpminer --pearl-mine --pool <POOL_HOST>:<POOL_PORT> --wallet <solo:WALLET> --worker <WORKER> [--devices <MINER_DEVICES>] [MINER_EXTRA_ARGS]
 ```
 
 ---

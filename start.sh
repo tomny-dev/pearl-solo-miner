@@ -45,8 +45,6 @@ case "${SOLO_MODE,,}" in
     ;;
 esac
 
-LOGIN="${WALLET_FOR_POOL}.${WORKER_NAME}"
-
 # GPU visibility check (nvidia-smi is injected by the NVIDIA Container Toolkit).
 command -v nvidia-smi >/dev/null 2>&1 \
   || die "nvidia-smi not found. Ensure the NVIDIA runtime is active and NVIDIA_DRIVER_CAPABILITIES includes 'utility'."
@@ -61,24 +59,38 @@ MINER_BIN="${MINER_BIN:-}"
 [ -n "$MINER_BIN" ] || die "lpminer binary not found under /opt/lpminer."
 [ -x "$MINER_BIN" ] || die "lpminer binary at $MINER_BIN is not executable."
 
-ALGO="${ALGO:-pearl}"
 MINER_PASSWORD="${MINER_PASSWORD:-x}"
+MINER_DEVICES="${MINER_DEVICES:-}"
+
+# Build the lpminer command. lpminer (exfer branch) uses a phase flag
+# (--pearl-mine) plus --pool / --wallet / --worker. The wallet carries the
+# optional solo: prefix; --password and --algo are accepted but ignored.
+cmd=( "$MINER_BIN" --pearl-mine
+      --pool "$POOL"
+      --wallet "$WALLET_FOR_POOL"
+      --worker "$WORKER_NAME"
+      --password "$MINER_PASSWORD" )
+# Restrict to specific exposed GPUs if requested (default: lpminer uses all).
+[ -n "$MINER_DEVICES" ] && cmd+=( --devices "$MINER_DEVICES" )
+# Append any extra raw args (intentionally word-split).
+if [ -n "${MINER_EXTRA_ARGS:-}" ]; then
+  # shellcheck disable=SC2206
+  cmd+=( ${MINER_EXTRA_ARGS} )
+fi
 
 # ---- Safe startup summary ---------------------------------------------------
 
-REDACTED_LOGIN="$(redact "$WALLET_FOR_POOL").${WORKER_NAME}"
-
 log "=================================================="
-log " Pearl (PRL) solo-pool miner  -  LuckyPool / lpminer"
+log " Pearl (PRL) miner  -  LuckyPool / lpminer"
 log "=================================================="
 log "Pool endpoint : ${POOL}"
 log "Worker name   : ${WORKER_NAME}"
 log "Solo mode     : ${SOLO_ENABLED}"
 log "Miner binary  : ${MINER_BIN}"
-log "Algorithm     : ${ALGO}"
+log "GPU devices   : ${MINER_DEVICES:-all (exposed to container)}"
 log "GPU visible   :"
 while IFS= read -r line; do log "   ${line}"; done <<< "$GPU_LIST"
-log "Command       : ${MINER_BIN} ${ALGO} ${REDACTED_LOGIN} ${POOL} ${MINER_PASSWORD} ${MINER_EXTRA_ARGS:-}"
+log "Command       : ${MINER_BIN} --pearl-mine --pool ${POOL} --wallet $(redact "$WALLET_FOR_POOL") --worker ${WORKER_NAME} --password ${MINER_PASSWORD}${MINER_DEVICES:+ --devices ${MINER_DEVICES}}${MINER_EXTRA_ARGS:+ ${MINER_EXTRA_ARGS}}"
 log "=================================================="
 if [ "$SOLO_ENABLED" = "yes" ]; then
   log "WARNING: Solo mining is lottery-style. You may earn ZERO PRL for days or"
@@ -91,5 +103,4 @@ if [ -d /data ] && [ -w /data ]; then
 fi
 
 # Exec so lpminer becomes PID 1 and receives SIGTERM on container stop.
-# shellcheck disable=SC2086
-exec "$MINER_BIN" "$ALGO" "$LOGIN" "$POOL" "$MINER_PASSWORD" ${MINER_EXTRA_ARGS:-}
+exec "${cmd[@]}"
