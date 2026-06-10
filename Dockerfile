@@ -19,7 +19,8 @@ ARG MINER_GID=10001
 
 ENV DEBIAN_FRONTEND=noninteractive \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    CUDA_CACHE_PATH=/tmp/.nv
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates tar unzip wget \

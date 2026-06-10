@@ -215,13 +215,13 @@ The wallet is **always redacted** in logs (first 6 / last 4 characters only).
 | `POOL_PORT`       | yes      | `3360`                           | Difficulty port (3360 low / 3361 mid / 3362 high). |
 | `SOLO_MODE`       | no       | `true`                           | `true` = solo (prefix `solo:`); `false` = normal pool. |
 | `GPU_COUNT`       | no       | `1`                              | Number of GPUs to use (`1`, `2`, … or `all`). |
-| `MINER_PASSWORD`  | no       | `x`                              | Stratum password field (accepted but ignored by lpminer). |
 | `MINER_DEVICES`   | no       | all exposed                      | GPUs lpminer mines on, e.g. `0` or `0,1`. Empty = all. |
 | `MINER_EXTRA_ARGS`| no       | —                                | Extra raw args for `lpminer`. |
-| `CUDA_CACHE_PATH` | no       | `/tmp/.nv`                       | Writable CUDA JIT cache dir (needed under read-only fs). |
-| `CUDA_FORCE_PTX_JIT` | no    | —                                | Set `1` to force PTX JIT (sm_120 workaround). |
-| `LPMINER_URL`     | no       | Linux `lpminer-0.1.9.tar.gz`     | Build-time download URL. Use the Linux `.tar.gz` (not the Windows `.zip`). |
-| `CUDA_IMAGE_TAG`  | no       | `12.8.1-runtime-ubuntu24.04`     | Build arg: CUDA base image; try `13.0.1-runtime-ubuntu24.04` for sm_120. |
+| `LPMINER_URL`     | no       | Linux `lpminer-0.1.9.tar.gz`     | Build-time download URL. Must be the Linux `.tar.gz`. |
+| `CUDA_IMAGE_TAG`  | no       | `12.8.1-runtime-ubuntu24.04`     | Build arg only; advanced — try a newer CUDA for RTX 50-series. |
+
+> Advanced/rare knobs (`MINER_PASSWORD`, `CUDA_FORCE_PTX_JIT`) have sensible
+> defaults and aren't in `.env.example`; see Troubleshooting if you need them.
 
 Resulting miner command (wallet redacted in logs):
 
@@ -296,21 +296,20 @@ page — pools occasionally change them.
   ```
   followed by a restart loop.
 - Note: lpminer **enables** the `sm_120` card (so the binary *does* know
-  Blackwell), then the compute faults — so this is usually an **execution /
-  environment** problem, not "no Blackwell support". Likely causes, in order:
-  1. **CUDA JIT cache not writable.** Under the read-only filesystem, the driver
-     can't cache (or sometimes complete) PTX→SASS JIT. This image sets
-     `CUDA_CACHE_PATH=/tmp/.nv` (writable tmpfs) to fix that — make sure it's in
-     your `.env`.
-  2. **CUDA runtime too old** for `sm_120`. Rebuild on a newer base:
-     `docker compose build --build-arg CUDA_IMAGE_TAG=13.0.1-runtime-ubuntu24.04 && docker compose up -d`.
-  3. **WSL2 GPU virtualization.** On Docker Desktop (Windows), bleeding-edge
-     `sm_120` kernels can fault under WSL2 even when fine on bare-metal Linux.
-     This is **not fixable from the container** — the alternatives are native
-     Windows lpminer, a bare-metal Linux host, or a different Pearl miner.
-- Isolate it with the built-in GPU self-test (no pool, writable JIT cache, no
-  read-only). If this crashes too, the cause is #2 or #3, not your config:
-  `docker run --rm -it --gpus all -e CUDA_CACHE_PATH=/tmp/.nv --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench`
+  Blackwell), then the compute faults — usually an **execution / environment**
+  issue, not "no Blackwell support". Things to try, in order:
+  1. **Newer CUDA runtime.** Rebuild on a newer base image:
+     `docker compose build --build-arg CUDA_IMAGE_TAG=12.9.1-runtime-ubuntu24.04 && docker compose up -d`
+     (or `13.0.2-runtime-ubuntu24.04`).
+  2. **Force PTX JIT.** Add `CUDA_FORCE_PTX_JIT=1` to your `.env` and restart.
+     (A writable JIT cache is already configured in the image.)
+  3. **WSL2 limitation.** On Docker Desktop (Windows), bleeding-edge `sm_120`
+     kernels can fault under WSL2 even when fine on bare-metal Linux — this can't
+     be fixed from inside the container. If 1–2 don't help, run lpminer natively
+     on Windows, or on a bare-metal Linux host.
+- Isolate it (GPU self-test, no pool). If this crashes too, the cause is the
+  CUDA/WSL2 environment, not your pool/config:
+  `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench`
 - **Stop the loop** anytime with `docker compose down`.
 
 ### Shares accepted but no payout yet
