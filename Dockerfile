@@ -1,11 +1,17 @@
 # syntax=docker/dockerfile:1
 # Pearl (PRL) solo-pool miner for NVIDIA GPUs using LuckyPool lpminer.
 
-FROM nvidia/cuda:12.8.1-runtime-ubuntu24.04
+# CUDA base image tag is a build arg so you can try a newer CUDA runtime for
+# bleeding-edge GPUs (e.g. RTX 50-series / sm_120):
+#   docker compose build --build-arg CUDA_IMAGE_TAG=13.0.1-runtime-ubuntu24.04
+ARG CUDA_IMAGE_TAG=12.8.1-runtime-ubuntu24.04
+FROM nvidia/cuda:${CUDA_IMAGE_TAG}
 
 # lpminer download URL is configurable at build time so you can pin/upgrade
 # without editing the Dockerfile:  docker compose build --build-arg LPMINER_URL=...
-ARG LPMINER_URL=https://pearl.luckypool.io/lpminer/lpminer-0.1.10.zip
+# Use the Linux .tar.gz build (the .zip is a Windows-only binary and will not
+# run inside this Linux image).
+ARG LPMINER_URL=https://pearl.luckypool.io/lpminer/lpminer-0.1.9.tar.gz
 
 # Fixed UID/GID for the non-root runtime user (and the writable /data volume).
 ARG MINER_UID=10001

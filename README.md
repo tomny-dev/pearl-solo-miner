@@ -218,7 +218,10 @@ The wallet is **always redacted** in logs (first 6 / last 4 characters only).
 | `MINER_PASSWORD`  | no       | `x`                              | Stratum password field (accepted but ignored by lpminer). |
 | `MINER_DEVICES`   | no       | all exposed                      | GPUs lpminer mines on, e.g. `0` or `0,1`. Empty = all. |
 | `MINER_EXTRA_ARGS`| no       | —                                | Extra raw args for `lpminer`. |
-| `LPMINER_URL`     | no       | official `lpminer-0.1.10.zip`    | Build-time download URL (`.zip` or `.tar.gz`). |
+| `CUDA_CACHE_PATH` | no       | `/tmp/.nv`                       | Writable CUDA JIT cache dir (needed under read-only fs). |
+| `CUDA_FORCE_PTX_JIT` | no    | —                                | Set `1` to force PTX JIT (sm_120 workaround). |
+| `LPMINER_URL`     | no       | Linux `lpminer-0.1.9.tar.gz`     | Build-time download URL. Use the Linux `.tar.gz` (not the Windows `.zip`). |
+| `CUDA_IMAGE_TAG`  | no       | `12.8.1-runtime-ubuntu24.04`     | Build arg: CUDA base image; try `13.0.1-runtime-ubuntu24.04` for sm_120. |
 
 Resulting miner command (wallet redacted in logs):
 
@@ -292,19 +295,23 @@ page — pools occasionally change them.
   all GPU workers exited; stopping session
   ```
   followed by a restart loop.
-- Cause: an lpminer build without working CUDA kernels for Blackwell `sm_120`
-  (RTX 5070/5080/5090). It detects and "enables" the card, but the first GPU
-  kernel faults. This is a miner-internal limitation, not a problem with this
-  Docker wrapper. lpminer **0.1.9** crashes this way on the 5090; **0.1.10**
-  (this image's default) is newer and may resolve it — test on your card.
-- Fixes:
-  - **Stop the loop** if it persists: `docker compose down`.
-  - Try a newer lpminer by pointing `LPMINER_URL` at it and rebuilding — no other
-    changes needed (`.zip` and `.tar.gz` are both supported):
-    `docker compose build --build-arg LPMINER_URL=<new-url> && docker compose up -d`.
-  - Or mine Pearl with a different miner/pool whose binary supports `sm_120`.
-- Verify the GPU itself is fine (this is a CUDA smoke test, no mining):
-  `docker run --rm -it --gpus all --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-verify`.
+- Note: lpminer **enables** the `sm_120` card (so the binary *does* know
+  Blackwell), then the compute faults — so this is usually an **execution /
+  environment** problem, not "no Blackwell support". Likely causes, in order:
+  1. **CUDA JIT cache not writable.** Under the read-only filesystem, the driver
+     can't cache (or sometimes complete) PTX→SASS JIT. This image sets
+     `CUDA_CACHE_PATH=/tmp/.nv` (writable tmpfs) to fix that — make sure it's in
+     your `.env`.
+  2. **CUDA runtime too old** for `sm_120`. Rebuild on a newer base:
+     `docker compose build --build-arg CUDA_IMAGE_TAG=13.0.1-runtime-ubuntu24.04 && docker compose up -d`.
+  3. **WSL2 GPU virtualization.** On Docker Desktop (Windows), bleeding-edge
+     `sm_120` kernels can fault under WSL2 even when fine on bare-metal Linux.
+     This is **not fixable from the container** — the alternatives are native
+     Windows lpminer, a bare-metal Linux host, or a different Pearl miner.
+- Isolate it with the built-in GPU self-test (no pool, writable JIT cache, no
+  read-only). If this crashes too, the cause is #2 or #3, not your config:
+  `docker run --rm -it --gpus all -e CUDA_CACHE_PATH=/tmp/.nv --entrypoint /opt/lpminer/lpminer/lpminer pearl-solo-miner:latest --pearl-bench`
+- **Stop the loop** anytime with `docker compose down`.
 
 ### Shares accepted but no payout yet
 - **This is expected for solo mining.** Accepted shares only prove your rig is
