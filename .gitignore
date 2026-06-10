@@ -1,0 +1,11 @@
+# Never commit real configuration / secrets (wallet, worker, pool).
+.env
+.env.*
+!.env.example
+
+# Local editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

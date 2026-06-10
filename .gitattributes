@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Force LF for files executed inside the Linux container, so a Windows
+# checkout never produces CRLF that would break the Docker build / entrypoint.
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+*.yml        text eol=lf
+.env.example text eol=lf

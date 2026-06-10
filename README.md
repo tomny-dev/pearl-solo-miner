@@ -24,14 +24,21 @@ NVIDIA GPU using **LuckyPool's `lpminer`**.
 ├── Dockerfile             # CUDA base, downloads lpminer, non-root user
 ├── docker-compose.yml     # single-GPU pinning + security hardening
 ├── .env.example           # all configuration (copy to .env)
+├── .gitignore             # keeps your real .env out of git
 ├── start.sh               # validation, safe logging, exec lpminer
 ├── README.md
-└── scripts/
-    ├── build.sh           # docker compose build
-    ├── run.sh             # docker compose up -d
-    ├── logs.sh            # docker compose logs -f
-    └── stop.sh            # docker compose down
+├── scripts/
+│   ├── build.sh           # docker compose build
+│   ├── run.sh             # docker compose up -d
+│   ├── logs.sh            # docker compose logs -f
+│   └── stop.sh            # docker compose down
+└── .github/workflows/
+    └── build.yml          # CI: build + push image to GHCR
 ```
+
+> 🔒 **Public repo note:** your real settings live in `.env`, which is
+> git-ignored. **Never commit `.env`** — only `.env.example` (with empty
+> `PRL_WALLET`) belongs in git.
 
 ---
 
@@ -264,6 +271,59 @@ page — pools occasionally change them.
 - Set a thermal limit / fan curve, and pass any miner-specific limits via
   `MINER_EXTRA_ARGS`.
 - If temps exceed ~80–85 °C sustained, reduce the power limit or improve cooling.
+
+---
+
+## Continuous integration / prebuilt image (GHCR)
+
+A GitHub Actions workflow ([`.github/workflows/build.yml`](.github/workflows/build.yml))
+builds the image and publishes it to the **GitHub Container Registry (GHCR)**.
+
+- **Pull requests** build the image only (a smoke test — nothing is pushed).
+- **Pushes to `main`** publish `:latest` and `:main` plus a commit-SHA tag.
+- **Version tags** like `v1.2.3` publish `:1.2.3`, `:1.2`, and `:latest`.
+- A **manual run** (`workflow_dispatch`) lets you override `LPMINER_URL`.
+
+It uses the built-in `GITHUB_TOKEN` (no extra secrets) and the repo's
+`packages: write` permission, so it works out of the box once the repo is on
+GitHub.
+
+### Make the published package public
+
+By default the GHCR package is private. To let anyone pull it:
+**GitHub → your repo → Packages → the package → Package settings → Change
+visibility → Public.**
+
+### Run from the prebuilt image instead of building locally
+
+Replace `<owner>/<repo>` with your GitHub path (lowercase). Pull, then run with
+your `.env`:
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+
+docker run -d --name pearl-solo-miner \
+  --runtime=nvidia \
+  -e NVIDIA_VISIBLE_DEVICES=0 \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+  --env-file .env \
+  --read-only --tmpfs /tmp -v miner_data:/data \
+  --security-opt no-new-privileges:true --cap-drop ALL \
+  --restart unless-stopped \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+Or point Compose at the published image by adding `image:` to the service and
+skipping the local build:
+
+```bash
+# Use the registry image without rebuilding
+docker compose pull
+docker compose up -d
+```
+
+(For `docker compose pull` to fetch GHCR rather than build, set the service
+`image:` to `ghcr.io/<owner>/<repo>:latest` in `docker-compose.yml`.)
 
 ---
 
