@@ -139,16 +139,10 @@ The image and Compose file are hardened (all compatible with the NVIDIA runtime)
 
 ## Prebuilt image (GHCR)
 
-CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)) builds on every
-PR (build-only) and publishes to GHCR on pushes to `main` (`:latest`, `:main`,
-`:sha-…`) and on version tags `vX.Y.Z` (`:X.Y.Z` and `:X.Y`). It uses the
-built-in `GITHUB_TOKEN` — no extra secrets.
-
-> New GHCR packages are private by default. To let others pull it: **repo →
-> Packages → the package → Package settings → Change visibility → Public.**
-
 Run from the published image instead of building (swap in your `owner/repo` if
-you forked). Use **`-di`** — `lpminer` reads stdin and quits on EOF when detached:
+you forked). Use **`-di`** — `lpminer` reads stdin and quits on EOF when detached.
+
+**Linux / macOS:**
 
 ```bash
 docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
@@ -160,8 +154,19 @@ docker run -di --name pearl-solo-miner \
   ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
-On Windows PowerShell, replace the trailing `\` line-continuations with backticks
-(`` ` ``). Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
+**Windows (PowerShell):**
+
+```powershell
+docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
+docker run -di --name pearl-solo-miner `
+  --gpus all --env-file .env `
+  --read-only --tmpfs /tmp -v miner_data:/data `
+  --security-opt no-new-privileges:true --cap-drop ALL `
+  --restart unless-stopped `
+  ghcr.io/tomny-dev/pearl-solo-miner:latest
+```
+
+Pick GPUs with `--gpus all` / `--gpus 2` / `--gpus '"device=0,2"'`.
 
 ---
 
