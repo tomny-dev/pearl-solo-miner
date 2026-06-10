@@ -56,8 +56,8 @@ fi
 # Prefer the exact name, then a versioned 'lpminer-*'; sort for deterministic pick.
 MINER_BIN="${MINER_BIN:-}"
 [ -n "$MINER_BIN" ] || MINER_BIN="$(command -v lpminer || true)"
-[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name lpminer -perm -u+x 2>/dev/null | sort | head -n1)"
-[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name 'lpminer-*' -perm -u+x 2>/dev/null | sort | head -n1)"
+[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name lpminer -perm -u+x 2>/dev/null | sort | head -n1 || true)"
+[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name 'lpminer-*' -perm -u+x 2>/dev/null | sort | head -n1 || true)"
 [ -n "$MINER_BIN" ] || die "lpminer binary not found under /opt/lpminer."
 [ -x "$MINER_BIN" ] || die "lpminer binary at $MINER_BIN is not executable."
 
