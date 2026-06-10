@@ -49,13 +49,15 @@ esac
 command -v nvidia-smi >/dev/null 2>&1 \
   || die "nvidia-smi not found. Ensure the NVIDIA runtime is active and NVIDIA_DRIVER_CAPABILITIES includes 'utility'."
 if ! GPU_LIST="$(nvidia-smi -L 2>/dev/null)" || [ -z "$GPU_LIST" ]; then
-  die "No NVIDIA GPU visible inside the container. Check the NVIDIA Container Toolkit and the GPU_ID setting."
+  die "No NVIDIA GPU visible inside the container. Check the NVIDIA Container Toolkit and your GPU_COUNT (or device_ids) setting in docker-compose.yml."
 fi
 
 # Locate the miner binary (tarball may unpack into a versioned subdirectory).
+# Prefer the exact name, then a versioned 'lpminer-*'; sort for deterministic pick.
 MINER_BIN="${MINER_BIN:-}"
 [ -n "$MINER_BIN" ] || MINER_BIN="$(command -v lpminer || true)"
-[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name 'lpminer*' -perm -u+x 2>/dev/null | head -n1 || true)"
+[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name lpminer -perm -u+x 2>/dev/null | sort | head -n1)"
+[ -n "$MINER_BIN" ] || MINER_BIN="$(find /opt/lpminer -maxdepth 4 -type f -name 'lpminer-*' -perm -u+x 2>/dev/null | sort | head -n1)"
 [ -n "$MINER_BIN" ] || die "lpminer binary not found under /opt/lpminer."
 [ -x "$MINER_BIN" ] || die "lpminer binary at $MINER_BIN is not executable."
 
@@ -90,7 +92,8 @@ log "Miner binary  : ${MINER_BIN}"
 log "GPU devices   : ${MINER_DEVICES:-all (exposed to container)}"
 log "GPU visible   :"
 while IFS= read -r line; do log "   ${line}"; done <<< "$GPU_LIST"
-log "Command       : ${MINER_BIN} --pearl-mine --pool ${POOL} --wallet $(redact "$WALLET_FOR_POOL") --worker ${WORKER_NAME} --password ${MINER_PASSWORD}${MINER_DEVICES:+ --devices ${MINER_DEVICES}}${MINER_EXTRA_ARGS:+ ${MINER_EXTRA_ARGS}}"
+# Password and any free-form extra args are masked here so secrets never hit the logs.
+log "Command       : ${MINER_BIN} --pearl-mine --pool ${POOL} --wallet $(redact "$WALLET_FOR_POOL") --worker ${WORKER_NAME} --password ***${MINER_DEVICES:+ --devices ${MINER_DEVICES}}${MINER_EXTRA_ARGS:+ [+ extra args]}"
 log "=================================================="
 if [ "$SOLO_ENABLED" = "yes" ]; then
   log "WARNING: Solo mining is lottery-style. You may earn ZERO PRL for days or"

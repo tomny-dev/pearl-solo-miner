@@ -15,6 +15,10 @@ on:
         description: "Override the lpminer download URL"
         required: false
         default: ""
+      lpminer_sha256:
+        description: "SHA-256 of the override URL (required if changing the URL)"
+        required: false
+        default: ""
 
 env:
   REGISTRY: ghcr.io
@@ -64,8 +68,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Pass the lpminer URL through only if provided via manual dispatch;
-          # otherwise the Dockerfile default is used.
+          # Only export cache off pull_request: fork PRs have a read-only token
+          # and would otherwise emit noisy "failed to export cache" warnings.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
+          # Pass the lpminer URL/hash through only if provided via manual dispatch;
+          # otherwise the Dockerfile defaults are used.
           build-args: |
             ${{ github.event.inputs.lpminer_url != '' && format('LPMINER_URL={0}', github.event.inputs.lpminer_url) || '' }}
+            ${{ github.event.inputs.lpminer_sha256 != '' && format('LPMINER_SHA256={0}', github.event.inputs.lpminer_sha256) || '' }}
