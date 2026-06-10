@@ -1,0 +1,56 @@
+# Pearl (PRL) solo-pool miner - one container pinned to exactly one NVIDIA GPU.
+# All runtime values come from the .env file (copy .env.example to .env first).
+
+services:
+  pearl-solo-miner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Override the lpminer version/source without editing the Dockerfile.
+        LPMINER_URL: ${LPMINER_URL:-https://pearl.luckypool.io/lpminer/lpminer-0.1.9.tar.gz}
+    image: pearl-solo-miner:latest
+    container_name: pearl-solo-miner
+
+    # Runtime configuration is provided entirely by the .env file.
+    env_file:
+      - .env
+
+    # GPU selection: pin to exactly ONE physical card via NVIDIA_VISIBLE_DEVICES.
+    # GPU_ID=0 -> first card, GPU_ID=1 -> second card (set it in .env).
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${GPU_ID:-0}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+
+    # Restart on crash, but stay down when you stop it on purpose.
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+    # ---- Security hardening (compatible with the NVIDIA runtime) ----
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Read-only root filesystem. The miner only needs writable scratch space,
+    # which is provided by the tmpfs below and the /data volume.
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - miner_data:/data
+
+    # ---- Alternative GPU selection (Compose device reservation) ----
+    # Use this block INSTEAD OF "runtime: nvidia" + NVIDIA_VISIBLE_DEVICES above
+    # if your Docker is configured for CDI / device_ids rather than the nvidia
+    # runtime. It pins the same single physical GPU by index.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           device_ids: ["${GPU_ID:-0}"]
+    #           capabilities: [gpu, utility]
+
+volumes:
+  miner_data:
