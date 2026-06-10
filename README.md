@@ -342,13 +342,14 @@ visibility → Public.**
 
 ### Run from the prebuilt image instead of building locally
 
-Replace `<owner>/<repo>` with your GitHub path (lowercase). The `--gpus` flag
-works the same on Linux and Windows (Docker Desktop).
+Images are published to `ghcr.io/tomny-dev/pearl-solo-miner` (if you forked the
+repo, swap in your own lowercase `owner/repo`). The `--gpus` flag works the same
+on Linux and Windows (Docker Desktop).
 
 **Linux / macOS shells:**
 
 ```bash
-docker pull ghcr.io/<owner>/<repo>:latest
+docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
 
 docker run -d --name pearl-solo-miner \
   --gpus all \
@@ -356,13 +357,13 @@ docker run -d --name pearl-solo-miner \
   --read-only --tmpfs /tmp -v miner_data:/data \
   --security-opt no-new-privileges:true --cap-drop ALL \
   --restart unless-stopped \
-  ghcr.io/<owner>/<repo>:latest
+  ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-docker pull ghcr.io/<owner>/<repo>:latest
+docker pull ghcr.io/tomny-dev/pearl-solo-miner:latest
 
 docker run -d --name pearl-solo-miner `
   --gpus all `
@@ -370,7 +371,7 @@ docker run -d --name pearl-solo-miner `
   --read-only --tmpfs /tmp -v miner_data:/data `
   --security-opt no-new-privileges:true --cap-drop ALL `
   --restart unless-stopped `
-  ghcr.io/<owner>/<repo>:latest
+  ghcr.io/tomny-dev/pearl-solo-miner:latest
 ```
 
 **Choosing GPUs with `docker run`:**
@@ -383,7 +384,7 @@ docker run -d --name pearl-solo-miner `
 ```
 
 Or point Compose at the published image (works on every OS). Set the service
-`image:` to `ghcr.io/<owner>/<repo>:latest` in `docker-compose.yml`, then:
+`image:` to `ghcr.io/tomny-dev/pearl-solo-miner:latest` in `docker-compose.yml`, then:
 
 ```bash
 docker compose pull
